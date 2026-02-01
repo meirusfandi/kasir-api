@@ -69,29 +69,12 @@ func main() {
 	http.Handle("/api/v1/products/", logMiddleware(productHandler.HandleProductByID))
 
 	// handle on categories
-	http.HandleFunc("/api/v1/categories", logMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case "GET":
-			handler.GetCategories(w, r)
-		case "POST":
-			handler.GetCategories(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}))
+	categoryRepo := repository.NewCategoryRepository(db)
+	categoryService := services.NewCategoryService(categoryRepo)
+	categoryHandler := handler.NewCategoryHandler(categoryService)
 
-	http.HandleFunc("/api/v1/categories/", logMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case "GET":
-			handler.GetCategory(w, r)
-		case "PUT":
-			handler.UpdateCategory(w, r)
-		case "DELETE":
-			handler.DeleteCategory(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}))
+	http.Handle("/api/v1/categories", logMiddleware(categoryHandler.HandleCategories))
+	http.Handle("/api/v1/categories/", logMiddleware(categoryHandler.HandleCategoryByID))
 
 	fmt.Println("Starting server on :" + config.PORT)
 	if err := http.ListenAndServe(":"+config.PORT, nil); err != nil {
