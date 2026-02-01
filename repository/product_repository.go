@@ -18,9 +18,8 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 func (repo *ProductRepository) GetAllProducts() ([]models.Product, error) {
 	var products []models.Product
 	query := `
-		SELECT p.id, p.name, p.price, p.stock, c.id, c.name
-		FROM products p
-		JOIN category c ON p.category_id = c.id
+		SELECT id, name, price, stock
+		FROM products
 	`
 	rows, err := repo.db.Query(query)
 	if err != nil {
@@ -34,7 +33,6 @@ func (repo *ProductRepository) GetAllProducts() ([]models.Product, error) {
 		var product models.Product
 		err := rows.Scan(
 			&product.ID, &product.Name, &product.Price, &product.Stock,
-			&product.Category.ID, &product.Category.Name,
 		)
 		log.Println("product", product)
 		if err != nil {
@@ -48,6 +46,7 @@ func (repo *ProductRepository) GetAllProducts() ([]models.Product, error) {
 
 func (repo *ProductRepository) GetProductByID(id int) (*models.Product, error) {
 	var product models.Product
+	product.Category = &models.Category{} // Initialize pointer
 	query := `
 		SELECT p.id, p.name, p.price, p.stock, c.id, c.name 
 		FROM products p
@@ -69,8 +68,12 @@ func (repo *ProductRepository) GetProductByID(id int) (*models.Product, error) {
 }
 
 func (repo *ProductRepository) CreateProduct(product models.Product) (*models.Product, error) {
+	var categoryID int
+	if product.Category != nil {
+		categoryID = product.Category.ID
+	}
 	err := repo.db.QueryRow("INSERT INTO products (name, price, stock, category_id) VALUES ($1, $2, $3, $4) RETURNING id",
-		product.Name, product.Price, product.Stock, product.Category.ID).Scan(&product.ID)
+		product.Name, product.Price, product.Stock, categoryID).Scan(&product.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +81,12 @@ func (repo *ProductRepository) CreateProduct(product models.Product) (*models.Pr
 }
 
 func (repo *ProductRepository) UpdateProduct(product models.Product) (*models.Product, error) {
+	var categoryID int
+	if product.Category != nil {
+		categoryID = product.Category.ID
+	}
 	row, err := repo.db.Exec("UPDATE products SET name = $1, price = $2, stock = $3, category_id = $4 WHERE id = $5",
-		product.Name, product.Price, product.Stock, product.Category.ID, product.ID)
+		product.Name, product.Price, product.Stock, categoryID, product.ID)
 	if err != nil {
 		return nil, err
 	}

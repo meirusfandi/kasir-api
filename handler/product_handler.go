@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"kasir-api/models"
 	"kasir-api/services"
 	"log"
@@ -105,15 +106,17 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	product, err := h.service.GetProductByID(id)
 	log.Println("product", product)
-	if err == sql.ErrNoRows {
-		json.NewEncoder(w).Encode(map[string]any{
-			"status":  "success",
-			"code":    "200",
-			"message": "No products found",
-		})
-		return
-	}
+
 	if err != nil {
+		if err.Error() == "Product not found" {
+			json.NewEncoder(w).Encode(map[string]any{
+				"status":  "success",
+				"code":    "200",
+				"message": fmt.Sprintf("Data with id %d not found", id),
+				"data":    nil,
+			})
+			return
+		}
 		log.Println("error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
