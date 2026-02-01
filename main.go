@@ -3,13 +3,46 @@ package main
 import (
 	"fmt"
 	"io"
-	"kasir-api/routes"
+	"kasir-api/database"
+	"kasir-api/handler"
+	"kasir-api/models"
+	"kasir-api/repository"
+	"kasir-api/services"
 	"log"
 	"net/http"
 	"os"
+	"strings"
+
+	"github.com/spf13/viper"
 )
 
 func main() {
+	// Setup viper
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	if _, err := os.Stat(".env"); err == nil {
+		viper.SetConfigFile(".env")
+		_ = viper.ReadInConfig()
+	}
+
+	config := models.Config{
+		DBHost:     viper.GetString("DB_HOST"),
+		DBPort:     viper.GetString("DB_PORT"),
+		DBUser:     viper.GetString("DB_USER"),
+		DBPassword: viper.GetString("DB_PASSWORD"),
+		DBName:     viper.GetString("DB_NAME"),
+		PORT:       viper.GetString("PORT"),
+	}
+
+	// Setup database
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", config.DBUser, config.DBPassword, config.DBHost, config.DBPort, config.DBName)
+	db, err := database.InitDB(connStr)
+	if err != nil {
+		log.Fatal("Failed to initialize database:", err)
+	}
+	defer db.Close()
+
 	// Logging setup
 	file, err := os.OpenFile("server.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -25,37 +58,23 @@ func main() {
 			next(w, r)
 		}
 	}
+
+	// Setup repository, service, and handler
+	productRepo := repository.NewProductRepository(db)
+	productService := services.NewProductService(productRepo)
+	productHandler := handler.NewProductHandler(productService)
+
 	// handle on products
-	http.HandleFunc("/api/v1/products", logMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case "GET":
-			routes.GetProducts(w, r)
-		case "POST":
-			routes.GetProducts(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}))
-	http.HandleFunc("/api/v1/products/", logMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case "GET":
-			routes.GetProduct(w, r)
-		case "PUT":
-			routes.UpdateProduct(w, r)
-		case "DELETE":
-			routes.DeleteProduct(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}))
+	http.Handle("/api/v1/products", logMiddleware(productHandler.HandleProducts))
+	http.Handle("/api/v1/products/", logMiddleware(productHandler.HandleProductByID))
 
 	// handle on categories
 	http.HandleFunc("/api/v1/categories", logMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
-			routes.GetCategories(w, r)
+			handler.GetCategories(w, r)
 		case "POST":
-			routes.GetCategories(w, r)
+			handler.GetCategories(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -64,18 +83,18 @@ func main() {
 	http.HandleFunc("/api/v1/categories/", logMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
-			routes.GetCategory(w, r)
+			handler.GetCategory(w, r)
 		case "PUT":
-			routes.UpdateCategory(w, r)
+			handler.UpdateCategory(w, r)
 		case "DELETE":
-			routes.DeleteCategory(w, r)
+			handler.DeleteCategory(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
 
-	fmt.Println("Starting server on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	fmt.Println("Starting server on :" + config.PORT)
+	if err := http.ListenAndServe(":"+config.PORT, nil); err != nil {
 		fmt.Println("Error starting server:", err)
 	}
 }
