@@ -16,7 +16,13 @@ func NewCategoryRepository(db *sql.DB) *CategoryRepository {
 
 func (r *CategoryRepository) GetAllCategories() ([]models.Category, error) {
 	var categories []models.Category
-	rows, err := r.db.Query("SELECT id, name, description FROM category")
+	query := `
+		SELECT c.id, c.name, c.description, COUNT(p.id) as product_count
+		FROM category c
+		LEFT JOIN products p ON c.id = p.category_id
+		GROUP BY c.id, c.name, c.description
+	`
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -24,7 +30,7 @@ func (r *CategoryRepository) GetAllCategories() ([]models.Category, error) {
 
 	for rows.Next() {
 		var category models.Category
-		err := rows.Scan(&category.ID, &category.Name, &category.Description)
+		err := rows.Scan(&category.ID, &category.Name, &category.Description, &category.ProductCount)
 		if err != nil {
 			return nil, err
 		}
@@ -35,8 +41,15 @@ func (r *CategoryRepository) GetAllCategories() ([]models.Category, error) {
 
 func (r *CategoryRepository) GetCategoryByID(id int) (*models.Category, error) {
 	var category models.Category
-	row := r.db.QueryRow("SELECT id, name, description FROM category WHERE id = $1", id)
-	err := row.Scan(&category.ID, &category.Name, &category.Description)
+	query := `
+		SELECT c.id, c.name, c.description, COUNT(p.id) as product_count
+		FROM category c
+		LEFT JOIN products p ON c.id = p.category_id
+		WHERE c.id = $1
+		GROUP BY c.id, c.name, c.description
+	`
+	row := r.db.QueryRow(query, id)
+	err := row.Scan(&category.ID, &category.Name, &category.Description, &category.ProductCount)
 	if err != nil {
 		return nil, err
 	}

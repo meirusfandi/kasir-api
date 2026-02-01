@@ -17,7 +17,12 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 
 func (repo *ProductRepository) GetAllProducts() ([]models.Product, error) {
 	var products []models.Product
-	rows, err := repo.db.Query("SELECT id, name, price, stock FROM products")
+	query := `
+		SELECT p.id, p.name, p.price, p.stock, c.id, c.name
+		FROM products p
+		JOIN category c ON p.category_id = c.id
+	`
+	rows, err := repo.db.Query(query)
 	if err != nil {
 		log.Println("error", err)
 		return nil, err
@@ -27,7 +32,10 @@ func (repo *ProductRepository) GetAllProducts() ([]models.Product, error) {
 
 	for rows.Next() {
 		var product models.Product
-		err := rows.Scan(&product.ID, &product.Name, &product.Price, &product.Stock)
+		err := rows.Scan(
+			&product.ID, &product.Name, &product.Price, &product.Stock,
+			&product.Category.ID, &product.Category.Name,
+		)
 		log.Println("product", product)
 		if err != nil {
 			log.Println("error", err)
@@ -40,9 +48,17 @@ func (repo *ProductRepository) GetAllProducts() ([]models.Product, error) {
 
 func (repo *ProductRepository) GetProductByID(id int) (*models.Product, error) {
 	var product models.Product
-	// Explicitly select columns to match Scan arguments
-	row := repo.db.QueryRow("SELECT id, name, price, stock FROM products WHERE id = $1", id)
-	err := row.Scan(&product.ID, &product.Name, &product.Price, &product.Stock)
+	query := `
+		SELECT p.id, p.name, p.price, p.stock, c.id, c.name 
+		FROM products p
+		JOIN category c ON p.category_id = c.id
+		WHERE p.id = $1
+	`
+	row := repo.db.QueryRow(query, id)
+	err := row.Scan(
+		&product.ID, &product.Name, &product.Price, &product.Stock,
+		&product.Category.ID, &product.Category.Name,
+	)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("Product not found")
 	}
@@ -53,7 +69,8 @@ func (repo *ProductRepository) GetProductByID(id int) (*models.Product, error) {
 }
 
 func (repo *ProductRepository) CreateProduct(product models.Product) (*models.Product, error) {
-	err := repo.db.QueryRow("INSERT INTO products (name, price, stock) VALUES ($1, $2, $3) RETURNING id", product.Name, product.Price, product.Stock).Scan(&product.ID)
+	err := repo.db.QueryRow("INSERT INTO products (name, price, stock, category_id) VALUES ($1, $2, $3, $4) RETURNING id",
+		product.Name, product.Price, product.Stock, product.Category.ID).Scan(&product.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +78,8 @@ func (repo *ProductRepository) CreateProduct(product models.Product) (*models.Pr
 }
 
 func (repo *ProductRepository) UpdateProduct(product models.Product) (*models.Product, error) {
-	row, err := repo.db.Exec("UPDATE products SET name = $1, price = $2, stock = $3 WHERE id = $4", product.Name, product.Price, product.Stock, product.ID)
+	row, err := repo.db.Exec("UPDATE products SET name = $1, price = $2, stock = $3, category_id = $4 WHERE id = $5",
+		product.Name, product.Price, product.Stock, product.Category.ID, product.ID)
 	if err != nil {
 		return nil, err
 	}

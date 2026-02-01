@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"kasir-api/models"
 	"kasir-api/services"
@@ -28,7 +29,18 @@ func (h *ProductHandler) HandleProducts(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *ProductHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	products, err := h.service.GetAllProducts()
+	if err == sql.ErrNoRows {
+		json.NewEncoder(w).Encode(map[string]any{
+			"status":  "success",
+			"code":    "200",
+			"message": "No products found",
+			"data":    []models.Product{},
+		})
+		return
+	}
+
 	if err != nil {
 		log.Println("error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -37,7 +49,6 @@ func (h *ProductHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) 
 
 	log.Println("products", products)
 
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
 		"status":  "success",
 		"code":    "200",
@@ -91,8 +102,17 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("id", id)
 
+	w.Header().Set("Content-Type", "application/json")
 	product, err := h.service.GetProductByID(id)
 	log.Println("product", product)
+	if err == sql.ErrNoRows {
+		json.NewEncoder(w).Encode(map[string]any{
+			"status":  "success",
+			"code":    "200",
+			"message": "No products found",
+		})
+		return
+	}
 	if err != nil {
 		log.Println("error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -100,7 +120,6 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("product", product)
 
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
 		"status":  "success",
 		"code":    "200",
