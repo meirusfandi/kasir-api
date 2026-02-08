@@ -31,7 +31,8 @@ func (h *ProductHandler) HandleProducts(w http.ResponseWriter, r *http.Request) 
 
 func (h *ProductHandler) GetAllProducts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	products, err := h.service.GetAllProducts()
+	name := r.URL.Query().Get("name")
+	products, err := h.service.GetAllProducts(name)
 	if err == sql.ErrNoRows {
 		json.NewEncoder(w).Encode(map[string]any{
 			"status":  "success",

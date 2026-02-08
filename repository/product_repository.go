@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"kasir-api/models"
 	"log"
 )
@@ -15,13 +16,22 @@ func NewProductRepository(db *sql.DB) *ProductRepository {
 	return &ProductRepository{db: db}
 }
 
-func (repo *ProductRepository) GetAllProducts() ([]models.Product, error) {
+func (repo *ProductRepository) GetAllProducts(name string) ([]models.Product, error) {
 	var products []models.Product
 	query := `
 		SELECT id, name, price, stock
 		FROM products
 	`
-	rows, err := repo.db.Query(query)
+	args := []interface{}{}
+	if name != "" {
+		query += `WHERE name LIKE $1`
+		args = append(args, "%"+name+"%")
+	}
+
+	fmt.Println("query", query)
+	fmt.Println("args", args)
+
+	rows, err := repo.db.Query(query, args...)
 	if err != nil {
 		log.Println("error", err)
 		return nil, err

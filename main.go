@@ -76,6 +76,13 @@ func main() {
 	http.Handle("/api/v1/categories", logMiddleware(categoryHandler.HandleCategories))
 	http.Handle("/api/v1/categories/", logMiddleware(categoryHandler.HandleCategoryByID))
 
+	// Transaction
+	transactionRepo := repository.NewTransactionRepository(db)
+	transactionService := services.NewTransactionService(transactionRepo)
+	transactionHandler := handler.NewTransactionHandler(transactionService)
+
+	http.Handle("/api/v1/checkout", logMiddleware(transactionHandler.HandleCheckout)) // POST
+
 	fmt.Println("Starting server on :" + config.PORT)
 	if err := http.ListenAndServe(":"+config.PORT, nil); err != nil {
 		fmt.Println("Error starting server:", err)
