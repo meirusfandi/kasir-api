@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"kasir-api/helpers"
 	"kasir-api/models"
 	"kasir-api/services"
 	"net/http"
@@ -21,7 +22,7 @@ func (h *TransactionHandler) HandleCheckout(w http.ResponseWriter, r *http.Reque
 	case http.MethodPost:
 		h.Checkout(w, r)
 	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		helpers.SendResponse(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
 	}
 }
 
@@ -29,16 +30,15 @@ func (h *TransactionHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 	var req models.CheckoutRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		helpers.SendResponse(w, http.StatusBadRequest, "Invalid request body", nil)
 		return
 	}
 
 	transaction, err := h.service.Checkout(req.Items, false)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		helpers.SendResponse(w, http.StatusInternalServerError, err.Error(), nil)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(transaction)
+	helpers.SendResponse(w, http.StatusOK, "Checkout successful", transaction)
 }

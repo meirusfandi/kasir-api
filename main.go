@@ -83,6 +83,14 @@ func main() {
 
 	http.Handle("/api/v1/checkout", logMiddleware(transactionHandler.HandleCheckout)) // POST
 
+	// Report
+	reportRepo := repository.NewReportRepository(db)
+	reportService := services.NewReportService(reportRepo)
+	reportHandler := handler.NewReportHandler(reportService)
+
+	http.Handle("/api/report/hari-ini", logMiddleware(reportHandler.GetDailyReport))
+	http.Handle("/api/report", logMiddleware(reportHandler.GetReport))
+
 	fmt.Println("Starting server on :" + config.PORT)
 	if err := http.ListenAndServe(":"+config.PORT, nil); err != nil {
 		fmt.Println("Error starting server:", err)
